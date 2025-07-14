@@ -1,0 +1,213 @@
+
+
+《嵌入式Linux驱动与应用开发》
+期 中 考 试
+
+
+
+学    院：           软件学院            
+任课教师：            黄启明             
+考试时间：          2025年5月           
+考试方式：           命题考察            
+课程属性：          专业选修课           
+班    级：         软件2312Z班           
+学    号：         20231613140            
+姓    名：            陶政奇              
+
+
+山西农业大学软件学院
+
+
+撰写要求及评分细则
+（此页保留，打印在封皮背面）
+1. 排版要求
+正文主体：五号宋体，段前0行，段后0行，1.2倍行距，两端对齐，首行缩进2个字符。检测报告中所有数字及英文采用Times New Roman字体。
+结果采用截图的形式，图中要包括输入的命令和结果，并适当调整图片大小，保证图片中的文字清晰可见。
+图按序编号（例如，图1），图题采用小五号黑体，单倍行距，居中对齐，段前0.5行，段后0.5行；图题在图的下方。
+2. 打印要求：
+双面打印，打印后左侧装订（左侧上下订两个钉，不要订在左上角）。
+3. 评分细则
+结合以下细则及每次检测报告具体要求，酌情给分：
+报告书写是否符合统一模板要求；（20%）
+报告完成是否完整、真实；（30%）
+输入命令是否正确，是否给出运行结果；（30%）
+心得体会撰写是否符合客观实际，实事求是分析所遇问题。（20%）
+一、任务名称
+《嵌入式实时操作系统》 期中考试
+二、编程环境
+Linux操作系统
+三、任务内容与结果分析	
+共享内存：通过 shmget 创建共享内存段，使用 shmat 映射到进程地址空间，shmdt 解除映射，shmctl 删除共享内存段。
+信号量：使用 semget 创建信号量集，semctl 初始化信号量值，自定义 semaphore_p 和 semaphore_v 函数进行信号量的 P 操作和 V 操作，semctl 删除信号量集。
+数据采集进程：生成随机原始数据，设置数据就绪状态，释放互斥信号量通知数据已采集完成，等待数据处理进程处理完成。
+数据处理进程：获取采集好的数据，计算平均值，设置数据处理完成状态，释放数据就绪信号量通知数据已处理完成，等待日志记录进程记录完成。
+日志记录进程：等待数据处理完成信号量，记录处理结果到日志文件，设置日志记录完成状态，释放处理完成信号量通知数据处理进程。
+
+任务内容：
+主进程：创建子进程，等待子进程结束，删除共享内存段和信号量集。
+子进程1: 数据收集（生成100个随机数）
+子进程2: 数据处理（求平均值）
+子进程3: 日志写入
+注意：以上操作均要在共享内存中完成，同时注意共享内存的使用需要用到信号量来解决
+绘制任务流程图（10分）
+
+图1
+数据采集进程函数（20分）
+void collect_data(int semid, int shmid) {
+    int *shm = (int *)shmat(shmid, NULL, 0);
+    if (shm == (void *) -1) {
+        perror("collect_data shmat");
+        exit(1);
+    }
+    srand(time(NULL));
+    // 互斥锁
+    P(semid, 0);
+    for (int i = 0; i < DATA_SIZE; i++) {
+        shm[i] = rand() % 1000;
+    }
+    shm[DATA_SIZE] = 1; 
+    printf("采集进程：生成了100个随机数\n");
+    // 互斥锁
+    V(semid, 0);
+    V(semid, 1);
+    P(semid, 3);
+    shmdt(shm);
+    printf("采集进程：退出\n");
+}
+数据处理进程函数。（20分）
+// 数据处理进程函数
+void process_data(int semid, int shmid) {
+    int *shm = (int *)shmat(shmid, NULL, 0);
+    if (shm == (void *) -1) {
+        perror("process_data shmat");
+        exit(1);
+    }
+    P(semid, 1);
+    // 互斥锁 P
+    P(semid, 0);
+    int sum = 0;
+    for (int i = 0; i < DATA_SIZE; i++) {
+        sum += shm[i];
+    }
+    int avg = sum / DATA_SIZE;
+    shm[DATA_SIZE+1] = avg; 
+    shm[DATA_SIZE+2] = 1; 
+    printf("处理进程：计算平均值 %d\n", avg);
+    // 互斥锁 V
+    V(semid, 0);
+    V(semid, 2);
+    P(semid, 3);
+    shmdt(shm);
+    printf("处理进程：退出\n");
+}
+日志记录进程函数。（20分）
+void write_log(int semid, int shmid) {
+    int *shm = (int *)shmat(shmid, NULL, 0);
+    if (shm == (void *) -1) {
+        perror("write_log shmat");
+        exit(1);
+    }
+    P(semid, 2);
+    // 互斥锁 P
+    P(semid, 0);
+    FILE *fp = fopen("log.txt", "w");
+    if (fp == NULL) {
+        perror("fopen");
+        V(semid, 0);
+        shmdt(shm);
+        exit(1);
+    }
+    fprintf(fp, "平均值: %d\n", shm[DATA_SIZE+1]);
+    fprintf(fp, "数据:\n");
+    for (int i = 0; i < DATA_SIZE; i++) {
+        fprintf(fp, "%d ", shm[i]);
+        if ((i+1) % 10 == 0) fprintf(fp, "\n");
+    }
+    fclose(fp);
+    printf("日志进程：日志写入完成\n");
+    shm[DATA_SIZE+3] = 1; 
+    // 互斥锁 V
+    V(semid, 0);
+    V(semid, 3);
+    shmdt(shm);
+    printf("日志进程：退出\n");
+}
+主函数（15分）（包括必要的头文件/ 宏定义/ 结构体定义 等）
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <sys/types.h>
+#include <sys/ipc.h>
+#include <sys/shm.h>
+#include <sys/sem.h>
+#include <sys/wait.h>
+#include <time.h>
+#define SHM_KEY 0x5678
+#define SEM_KEY 0x1234
+#define DATA_SIZE 100
+// P操作
+void P(int semid, int semnum) {
+    struct sembuf op = {semnum, -1, 0};
+    semop(semid, &op, 1);
+}
+// V操作
+void V(int semid, int semnum) {
+    struct sembuf op = {semnum, 1, 0};
+    semop(semid, &op, 1);
+}
+int main() {
+    int shmid = shmget(SHM_KEY, sizeof(int) * (DATA_SIZE + 5), IPC_CREAT | 0666);
+    if (shmid < 0) {
+        perror("shmget");
+        return 1;
+    }
+    int semid = semget(SEM_KEY, 4, IPC_CREAT | 0666);
+    if (semid < 0) {
+        perror("semget");
+        return 1;
+    }
+    // 初始化信号量
+    semctl(semid, 0, SETVAL, 1); 
+    semctl(semid, 1, SETVAL, 0);  
+    semctl(semid, 2, SETVAL, 0);  
+    semctl(semid, 3, SETVAL, 0); 
+    pid_t pid;
+    pid = fork();
+    if (pid == 0) {
+        collect_data(semid, shmid);
+        exit(0);
+    }
+    pid = fork();
+    if (pid == 0) {
+        process_data(semid, shmid);
+        exit(0);
+    }
+    pid = fork();
+    if (pid == 0) {
+        write_log(semid, shmid);
+        exit(0);
+    }
+    // 等待
+    for (int i=0; i<3; i++) {
+        wait(NULL);
+    }
+    shmctl(shmid, IPC_RMID, NULL);
+    semctl(semid, 0, IPC_RMID);
+    printf("主进程：所有任务完成，资源已释放\n");
+    return 0;
+}
+运行截图（5分）
+这个是代码运行结果：
+
+图2
+在生成的log.txt中：
+
+图3
+心得体会
+思考使用共享内存的必要性（10分）
+  在多进程程序中，不同进程之间默认是相互独立的，无法直接共享数据。如果使用管道、消息队列等通信方式，虽然也能实现数据传输，但效率相对较低，尤其是在传输大量数据时容易成为瓶颈。
+  共享内存可以让所有进程访问同一块内存区域，实现数据的高效共享，省去了重复传输的开销。同时结合信号量使用，还能实现对共享资源的访问控制，避免多个进程同时修改同一数据造成数据混乱或冲突。因此，在需要多个进程频繁访问同一组数据的场景下，共享内存是一种高效且必要的解决方案。
+心得体会：
+通过本次实验，我第一次系统地使用了共享内存和信号量进行进程间通信。一开始对 shmget、shmat、semget 这些系统调用不太熟悉，也不了解信号量的 P/V 操作具体是如何控制进程同步的。但是在一步步完成代码和调试的过程中，我逐渐理解了它们的作用和使用方法。
+多进程编程不仅仅是创建多个进程，更重要的是进程之间的协调与数据共享。 共享内存提供了高效的通信机制，而信号量则是进程同步的重要手段，两者结合才能真正构建一个有序、可靠的多进程系统。
+虽然写代码的时候遇到了一些报错和逻辑混乱，但解决问题的过程也提高了我的编程能力和调试能力。以后在需要处理复杂并发任务或者多进程交互的项目中，我会更主动地考虑使用共享内存等方式来优化系统性能。

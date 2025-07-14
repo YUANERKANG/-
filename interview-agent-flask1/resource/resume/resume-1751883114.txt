@@ -1,0 +1,525 @@
+
+
+
+实 验 报 告
+
+
+
+
+题       目           图像预处理（二）    
+课       程           图像处理技术        
+专       业             软件工程          
+班       级           软件2312Z班        
+学       号           20231613140          
+姓       名              陶政奇            
+成       绩                              	
+教 师 签 名                              	
+批 阅 日 期                              	
+
+
+山西农业大学软件学院
+
+
+撰写要求及评分细则
+（此页保留，打印在封皮背面）
+1. 排版要求
+正文主体：五号宋体，段前0行，段后0行，1.2倍行距，两端对齐，首行缩进2个字符。实验报告中所有数字及英文采用Times New Roman字体。
+结果采用截图的形式，图中要包括输入的命令和结果，并适当调整图片大小，保证图片中的文字清晰可见。
+图按序编号（例如，图1），图题采用小五号黑体，单倍行距，居中对齐，段前0.5行，段后0.5行；图题在图的下方。
+2. 打印要求：
+双面打印，打印后左侧装订（左侧上下订两个钉，不要订在左上角）。
+3. 评分细则
+结合以下细则及每次实验报告具体要求，酌情给分：
+实验报告书写是否符合统一模板要求；（20%）
+实验内容完成是否完整、真实；（30%）
+输入命令是否正确，是否给出运行结果；（30%）
+心得体会撰写是否符合客观实际，实事求是分析实验所遇问题。（20%）
+一、实验名称
+图像预处理（二）
+二、实验环境
+Visual C++2017+OpenCV4.5.0
+三、实验目的
+1、掌握图像边缘检测的实现；
+2、掌握图像分割（基于阈值、边缘检测、区域的实现）；
+3、掌握图像形态学（腐蚀、膨胀、开运算、闭运算等的实现）。
+四、实验内容与结果分析
+（每个题目写出相关代码，结果采用截图的形式，并适当调整图片大小，保证图片内容及文字清晰可见。）
+注意：涉及窗口显示时，以自己的名字命名窗口。
+图像边缘检测（Roberts、Sobel、canny算子）
+Roberts算子：
+代码部分：
+#include "pch.h"
+#include <iostream>
+#include<opencv2/core/core.hpp>
+#include<opencv2/imgproc/imgproc.hpp>
+#include<opencv2/highgui/highgui.hpp>
+#include <opencv2\imgproc\types_c.h>
+#include<iostream>
+using namespace std;
+using namespace cv;
+#pragma comment(lib,"opencv_world450d.lib")
+Mat roberts(Mat srcImage)
+{
+	Mat dstImage = srcImage.clone();
+	int nRows = dstImage.rows;
+	int nCols = dstImage.cols;
+	for (int i = 0; i < nRows - 1; i++) {
+		for (int j = 0; j < nCols - 1; j++) {
+			int t1 = (srcImage.at<uchar>(i, j) -
+				srcImage.at<uchar>(i + 1, j + 1))*
+				(srcImage.at<uchar>(i, j) -
+					srcImage.at<uchar>(i + 1, j + 1));
+			int t2 = (srcImage.at<uchar>(i + 1, j) -
+				srcImage.at<uchar>(i, j + 1))*
+				(srcImage.at<uchar>(i + 1, j) -
+					srcImage.at<uchar>(i, j + 1));
+			dstImage.at<uchar>(i, j) = (uchar)sqrt(t1 + t2);
+		}
+	}
+	return dstImage;
+}
+void main()
+{
+	Mat srcImage = imread("嘎嘎.jpg");
+	if (!srcImage.data) {
+		cout << "falied to read" << endl;
+		system("pause");
+		return;
+	}
+	Mat srcGray;
+	cvtColor(srcImage, srcGray, CV_BGR2GRAY);
+	GaussianBlur(srcGray, srcGray, Size(3, 3),
+		0, 0, BORDER_DEFAULT);
+	Mat dstImage = roberts(srcGray);
+	imshow("陶政奇的srcImage", srcImage);
+	imshow("陶政奇的dstImage", dstImage);
+	waitKey(0);
+}
+结果部分：
+
+图1
+Sobel算子：
+代码部分：
+#include "pch.h"
+#include <iostream>
+#include <opencv2/core/core.hpp>
+#include <opencv2/highgui/highgui.hpp>
+#include <opencv2/opencv.hpp>
+using namespace cv;
+using namespace std;
+#pragma comment(lib,"opencv_world450d.lib")
+ int main()
+{
+	Mat img = imread("嘎嘎.jpg", IMREAD_ANYCOLOR);
+	if (img.empty())
+	{
+		cout << "请确认图像文件名称是否正确" << endl;
+		return -1;
+	}
+	Mat resultX, resultY, resultXY;
+	Sobel(img, resultX, CV_16S, 2, 0, 1);
+	convertScaleAbs(resultX, resultX);
+	Sobel(img, resultY, CV_16S, 0, 1, 3);
+	convertScaleAbs(resultY, resultY);
+	resultXY = resultX + resultY;
+	imshow("陶政奇的resultX", resultX);
+	imshow("陶政奇的resultY", resultY);
+	imshow("陶政奇的resultXY", resultXY);
+	waitKey(0);
+	return 0;
+ }
+结果部分：
+
+图2
+Canny算子：
+代码部分：
+#include <iostream>
+#include <opencv2/core/core.hpp>
+#include <opencv2/highgui/highgui.hpp>
+#include <opencv2/opencv.hpp>
+using namespace cv;
+using namespace std;
+#pragma comment(lib,"opencv_world450d.lib")
+int main( ) {
+	Mat src = imread("嘎嘎.jpg");
+	if (src.empty()) {
+		cout << "无法读取图像: " << endl;
+		return -1;
+	}
+	namedWindow("陶政奇的原始图像", WINDOW_AUTOSIZE);
+	namedWindow("陶政奇的Canny边缘", WINDOW_AUTOSIZE);
+	imshow("陶政奇的原始图像", src);
+	Mat gray;
+	cvtColor(src, gray, COLOR_BGR2GRAY);
+	Mat blurred;
+	GaussianBlur(gray, blurred, Size(3, 3), 0);
+	Mat edges;
+	double threshold1 = 50;  
+	double threshold2 = 150;
+	int apertureSize = 3; 
+	bool L2gradient = false; 
+	Canny(blurred, edges, threshold1, threshold2, apertureSize, L2gradient);
+	imshow("陶政奇的Canny边缘", edges);
+	waitKey(0);
+	return 0;
+}
+结果部分：
+
+图3
+图像分割
+固定阈值分割
+代码部分：
+#include "opencv2/imgcodecs.hpp"
+#include "opencv2/highgui.hpp"
+#include <opencv2/imgproc/imgproc.hpp>
+#include <iostream>
+#include <string>
+#pragma comment(lib, "opencv_world450d.lib")
+using namespace cv;
+using namespace std;
+int main() {
+	Mat image = imread("嘎嘎.jpg", IMREAD_GRAYSCALE);
+	if (image.empty()) {
+		cout << "Could not open or find the image" << endl;
+		return -1;
+	}
+	double threshold_value = 127;  
+	double max_value = 255;       
+	Mat binary_image;
+	threshold(image, binary_image, threshold_value, max_value, THRESH_BINARY);
+	namedWindow("陶政奇的Original Image", WINDOW_AUTOSIZE);
+	namedWindow("陶政奇的Binary Image", WINDOW_AUTOSIZE);
+	imshow("陶政奇的Original Image", image);
+	imshow("陶政奇的Binary Image", binary_image);
+	waitKey(0);
+	return 0;
+}
+结果部分：
+
+图4
+（2）自适应阈值分割
+代码部分：
+#include "pch.h"
+#include <opencv2/core/core.hpp>
+#include <opencv2/highgui/highgui.hpp>
+#include <opencv2/imgproc/imgproc.hpp>
+#include <opencv2\imgproc\types_c.h>
+#pragma comment(lib, "opencv_world450d.lib")
+using namespace cv;
+int main()
+{
+	Mat srcImage = imread("嘎嘎.jpg");
+	if (!srcImage.data)
+	{
+		puts("读取图片错误，请重新输入正确路径!");
+		system("pause");
+		return -1;
+	}
+	imshow("陶政奇的源图像", srcImage);
+	Mat srcGray;
+	cvtColor(srcImage, srcGray, CV_RGB2GRAY);
+	imshow("陶政奇的灰度图", srcGray);
+	Mat dstImage;       
+	const int maxVal = 255;
+	int blockSize = 3;  
+	int constValue = 10;
+	int adaptiveMethod = 0;
+	int thresholdType = 1;
+	adaptiveThreshold(srcGray, dstImage, maxVal, adaptiveMethod, thresholdType, blockSize, constValue);
+	imshow("陶政奇的自适应阈值", dstImage);
+	waitKey(0);
+	return 0;
+}
+结果部分：
+
+图5
+（3）区域生长法
+代码部分：
+#include <iostream>
+#include <opencv2/core/core.hpp>
+#include <opencv2/highgui/highgui.hpp>
+#include <opencv2/opencv.hpp>
+#include <vector>
+using namespace cv;
+using namespace std;
+#pragma comment(lib,"opencv_world450d.lib")
+using namespace cv;
+using namespace std;
+void regionGrowing(const Mat& src, Mat& dst, Point seedPoint, int threshold) {
+    int rows = src.rows; 
+    int cols = src.cols;
+    Mat mask = Mat::zeros(src.size(), CV_8UC1);
+    int dx[8] = { -1, -1,  0,  1, 1, 1, 0 ,-1 };
+    int dy[8] = { 0,  -1, -1, -1, 0, 1, 1 ,1 };
+    vector<Point> seedQueue;
+    seedQueue.push_back(seedPoint);
+    mask.at<uchar>(seedPoint) = 255;
+    int seedValue = (int)src.at<uchar>(seedPoint);
+    while (!seedQueue.empty()) {
+        Point currentPoint = seedQueue.back();
+        seedQueue.pop_back();
+        for (int i = 0; i < 8; i++) {
+            int newX = currentPoint.x + dx[i];
+            int newY = currentPoint.y + dy[i];
+            if (newX >= 0 && newX < cols && newY >= 0 && newY < rows) {
+                Point neighborPoint = Point(newX, newY);
+                if (mask.at<uchar>(neighborPoint) == 0) {
+                    int neighborPixelValue = (int)src.at<uchar>(neighborPoint);
+                    int diff = abs(seedValue - neighborPixelValue);
+                    if (diff <= threshold) {
+                        mask.at<uchar>(neighborPoint) = 255;
+                        seedQueue.push_back(neighborPoint);
+                    }
+                }
+            }
+        }
+    }
+    dst = mask;
+}
+int main() {
+    Mat src = imread("嘎嘎.jpg", IMREAD_GRAYSCALE);
+    if (src.empty()) {
+        cout << "无法读取图像" << endl;
+        return -1;
+    }
+    imshow("陶政奇的原图", src);
+    Mat result;
+    Point seedPoint = Point(src.cols / 2, src.rows / 2);
+    int threshold = 70;
+    regionGrowing(src, result, seedPoint, threshold);
+    imshow("陶政奇的区域生长图", result);
+    waitKey(0);
+    return 0;
+}
+结果部分：
+
+图6
+图像形态学
+代码部分：
+1、实现腐蚀和膨胀
+#include <iostream>
+#include "opencv2/imgproc.hpp"
+#include "opencv2/highgui.hpp"
+using namespace cv;
+using namespace std;
+Mat src, erosion_dst, dilation_dst;
+int erosion_elem = 0;
+int erosion_size = 0;
+int dilation_elem = 0;
+int dilation_size = 0;
+int const max_elem = 2;
+int const max_kernel_size = 21;
+void Erosion(int, void*);
+void Dilation(int, void*);
+#pragma comment(lib, "opencv_world450d.lib")
+int main(int argc, char** argv)
+{
+    src = imread("嘎嘎.jpg", IMREAD_COLOR);
+    if (src.empty())
+    {
+        cout << "Could not open or find the image!\n" << endl;
+        return -1;
+    }
+    namedWindow("Erosion Demo", WINDOW_AUTOSIZE);
+    namedWindow("Dilation Demo", WINDOW_AUTOSIZE);
+    moveWindow("Dilation Demo", src.cols, 0);
+    createTrackbar("Element:\n 0: Rect \n 1: Cross \n 2: Ellipse", "Erosion Demo",
+        &erosion_elem, max_elem,
+        Erosion);
+    createTrackbar("Kernel size:\n 2n +1", "Erosion Demo",
+        &erosion_size, max_kernel_size,
+        Erosion);
+    createTrackbar("Element:\n 0: Rect \n 1: Cross \n 2: Ellipse", "Dilation Demo",
+        &dilation_elem, max_elem,
+        Dilation);
+    createTrackbar("Kernel size:\n 2n +1", "Dilation Demo",
+        &dilation_size, max_kernel_size,
+        Dilation);
+    Erosion(0, 0);
+    Dilation(0, 0);
+    waitKey(0);
+    return 0;
+}
+void Erosion(int, void*)
+{
+    int erosion_type = 0;
+    if (erosion_elem == 0) { erosion_type = MORPH_RECT; }
+    else if (erosion_elem == 1) { erosion_type = MORPH_CROSS; }
+    else if (erosion_elem == 2) { erosion_type = MORPH_ELLIPSE; }
+    Mat element = getStructuringElement(erosion_type,
+        Size(2 * erosion_size + 1, 2 * erosion_size + 1),
+        Point(erosion_size, erosion_size));
+    erode(src, erosion_dst, element);
+    imshow("Erosion Demo", erosion_dst);
+}
+void Dilation(int, void*)
+{
+    int dilation_type = 0;
+    if (dilation_elem == 0) { dilation_type = MORPH_RECT; }
+    else if (dilation_elem == 1) { dilation_type = MORPH_CROSS; }
+    else if (dilation_elem == 2) { dilation_type = MORPH_ELLIPSE; }
+    Mat element = getStructuringElement(dilation_type,
+        Size(2 * dilation_size + 1, 2 * dilation_size + 1),
+        Point(dilation_size, dilation_size));
+    dilate(src, dilation_dst, element);
+    imshow("Dilation Demo", dilation_dst);
+}
+2、开闭运算和顶帽黑帽
+#include <iostream>
+#include "opencv2/imgproc/imgproc.hpp"
+#include "opencv2/highgui/highgui.hpp"
+#include <stdlib.h>
+#include <stdio.h>
+using namespace cv;
+#pragma comment(lib, "opencv_world450d.lib")  
+Mat src, dst;
+int morph_elem = 0;
+int morph_size = 0;
+int morph_operator = 0;
+int const max_operator = 4;
+int const max_elem = 2;
+int const max_kernel_size = 21;
+const char* window_name = "Morphology Transformations Demo";
+void Morphology_Operations(int, void*);
+int main(int argc, char** argv)
+{
+    src = imread("嘎嘎.jpg", IMREAD_COLOR); 
+    if (!src.data)
+        return -1;
+    namedWindow(window_name, WINDOW_AUTOSIZE);  
+    createTrackbar("Operator:\n 0: Opening - 1: Closing \n 2: Gradient - 3: Top Hat \n 4: Black Hat", window_name, &morph_operator, max_operator, Morphology_Operations);
+    createTrackbar("Element:\n 0: Rect - 1: Cross - 2: Ellipse", window_name, &morph_elem, max_elem, Morphology_Operations);
+    createTrackbar("Kernel size:\n 2n +1", window_name, &morph_size, max_kernel_size, Morphology_Operations);
+    Morphology_Operations(0, 0);
+    waitKey(0);
+    return 0;
+}
+void Morphology_Operations(int, void*)
+{
+    int operation = morph_operator + 2;
+    Mat element = getStructuringElement(morph_elem, Size(2 * morph_size + 1, morph_size + 1), Point(morph_size, morph_size));
+    morphologyEx(src, dst, operation, element);
+    imshow(window_name, dst);
+}
+3、击中击不中
+#include <opencv2/core.hpp>
+#include <opencv2/imgproc.hpp>
+#include <opencv2/highgui.hpp>
+#pragma comment(lib, "opencv_world450d.lib")  
+using namespace cv;
+int main()
+{
+    Mat input_image = (Mat_<uchar>(8, 8) <<
+        0, 0, 0, 0, 0, 0, 0, 0,
+        0, 255, 255, 255, 0, 0, 0, 255,
+        0, 255, 255, 255, 0, 0, 0, 0,
+        0, 255, 255, 255, 0, 255, 0, 0,
+        0, 255, 255, 255, 0, 0, 0, 0,
+        0, 0, 255, 0, 0, 255, 255, 0,
+        0, 255, 0, 255, 0, 0, 255, 0,
+        0, 255, 255, 255, 0, 0, 0, 0);
+    Mat kernel = (Mat_<int>(3, 3) <<
+        0, 1, 0,
+        1, -1, 1,
+        0, 1, 0);
+    Mat output_image;
+    morphologyEx(input_image, output_image, MORPH_HITMISS, kernel);
+    const int rate = 50;
+    kernel = (kernel + 1) * 127;
+    kernel.convertTo(kernel, CV_8U);
+    resize(kernel, kernel, Size(), rate, rate, INTER_NEAREST);
+    imshow("kernel", kernel);
+    moveWindow("kernel", 0, 0);
+    resize(input_image, input_image, Size(), rate, rate, INTER_NEAREST);
+    imshow("Original", input_image);
+    moveWindow("Original", 0, 200);
+    resize(output_image, output_image, Size(), rate, rate, INTER_NEAREST);
+    imshow("Hit or Miss", output_image);
+    moveWindow("Hit or Miss", 500, 200);
+    waitKey(0);
+    return 0;
+}
+4、提取水平线和垂直线
+#pragma comment(lib, "opencv_world450d.lib") 
+#include <opencv2/highgui/highgui_c.h>
+#include <opencv2/opencv.hpp>
+#include <iostream>
+using namespace std;
+using namespace cv;
+int main(int argc, char** argv)
+{
+    int op = 1;
+    printf("extract hline(1),vline(2),letter(3):");
+    scanf_s("%d", &op);
+    Mat src, dst;
+    if (op == 3)
+        src = imread("嘎嘎.jpg");
+    else
+        src = imread("嘎嘎.jpg");
+    if (!src.data)
+    {
+        cout << "could not load the image... " << endl;
+        return -1;
+    }
+    namedWindow("input image", CV_WINDOW_AUTOSIZE);
+    imshow("input image", src);
+    char OUTPUT_WIN[] = "result_image";
+    namedWindow(OUTPUT_WIN, CV_WINDOW_AUTOSIZE);
+    Mat gray_src;
+    cvtColor(src, gray_src, CV_BGR2GRAY);
+    imshow("gray image", gray_src);
+    Mat binImg;
+    adaptiveThreshold(~gray_src, binImg, 255, ADAPTIVE_THRESH_MEAN_C, THRESH_BINARY, 15, -2);
+    imshow("binary image", binImg);
+    Mat hline = getStructuringElement(MORPH_RECT, Size(src.cols / 16, 1)); 
+    Mat vline = getStructuringElement(MORPH_RECT, Size(1, src.rows / 16)); 
+    if (op == 1) 
+    {
+        Mat temp;
+        erode(binImg, temp, hline);
+        dilate(temp, dst, hline);
+        bitwise_not(dst, dst); 
+        blur(dst, dst, Size(3, 3), Point(-1, -1));
+        imshow(OUTPUT_WIN, dst);
+    }
+    else if (op == 2)
+    {
+        Mat temp1;
+        erode(binImg, temp1, vline);
+        dilate(temp1, dst, vline);
+        bitwise_not(dst, dst);
+        morphologyEx(binImg, dst, CV_MOP_OPEN, vline); 
+        bitwise_not(dst, dst);
+        blur(dst, dst, Size(3, 3), Point(-1, -1));
+        imshow(OUTPUT_WIN, dst);
+    }
+    else if (op == 3)
+    {
+        Mat kernel = getStructuringElement(MORPH_RECT, Size(7, 7));
+        morphologyEx(binImg, dst, CV_MOP_OPEN, kernel);
+        bitwise_not(dst, dst);
+        imshow(OUTPUT_WIN, dst);
+    }
+    waitKey(0);
+    return 0;
+}
+结果部分：
+
+图7
+
+图8
+
+图9
+
+图10
+
+图11
+
+图12
+五、心得体会
+在本次图像预处理实验中，我通过实践操作深入掌握了边缘检测、图像分割和形态学处理等核心技术，对OpenCV库的应用有了更全面的理解，同时也在问题解决中积累了宝贵的经验。
+在边缘检测环节，Roberts、Sobel和Canny算子的差异让我印象深刻。Roberts算子通过简单的对角线差分计算梯度，虽然原理直观，但对噪声敏感，边缘定位精度有限。Sobel 算子引入高斯平滑步骤，先抑制噪声再计算梯度，能检测到更清晰的边缘，尤其是在处理有一定噪声的图像时效果更稳定。而Canny算子凭借双阈值机制和滞后阈值处理，不仅能有效连接断裂边缘，还能减少虚假边缘的产生，展现出智能化的边缘提取逻辑。这让我明白，不同算子适用于不同场景，需根据图像的噪声水平和边缘特性选择合适的算法。例如，处理纹理简单的图像时，Roberts算子可能更高效；而对于自然场景图像，Canny算子往往能获得更理想的结果。
+图像分割部分，固定阈值、自适应阈值和区域生长法呈现出不同的设计思路。固定阈值分割操作简单，但依赖全局阈值，在光照不均匀的场景中分割效果较差。自适应阈值通过计算局部区域的阈值，有效解决了光照不均的问题，让我体会到从全局到局部的思维转变在图像处理中的重要性。区域生长法以种子点为中心扩散的方式，则凸显了交互式分割的灵活性，但其结果高度依赖种子点选择和阈值设置，这提示我在实际应用中需结合先验知识或用户交互来优化分割效果。
+形态学处理实验中，腐蚀、膨胀、开运算和闭运算等操作，通过改变结构元素的形状和大小，实现了对图像细节的精细调控。比如，使用矩形结构元素进行腐蚀操作可去除图像边缘的小凸起，而椭圆结构元素则能在平滑边缘的同时保留更多细节。
+实验过程中，我也遇到了一些挑战。例如，图像路径错误导致程序无法读取文件，窗口命名不规范使得结果显示混乱，以及参数设置不合理造成处理效果不理想等。通过仔细对照实验要求和代码规范，逐一排查变量定义、函数调用和参数传递等细节，我逐步解决了这些问题。这让我深刻认识到，编程过程中细节决定成败，严格遵循规范和良好的调试习惯是解决问题的关键。
+本次实验将理论知识与实践操作紧密结合，不仅提升了我对图像处理算法的理解和 OpenCV 库的使用技能，更培养了我根据图像特点灵活选择预处理策略的思维。未来，我将继续探索更多高级图像处理技术，努力提升自己在计算机视觉领域的实践能力，为解决实际问题奠定更坚实的基础。
